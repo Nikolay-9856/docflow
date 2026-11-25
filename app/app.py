@@ -1,5 +1,5 @@
 """ЦИТР.Документ — веб-приложение для автоматизации документооборота ООО «ЦИТР»."""
-from datetime import date, timedelta
+from datetime import timedelta
 
 import psycopg2
 from flask import Flask, flash, g, redirect, render_template, request, url_for
@@ -14,52 +14,6 @@ DBConnection.init(os.path.join(os.path.dirname(__file__), ".env"))
 app = Flask(__name__)
 app.secret_key = os.environ["SECRET_KEY"]
 app.permanent_session_lifetime = timedelta(hours=8)
-
-
-# --- до версии v3.0 представлений в БД нет: тот же SQL как подзапросы ---
-DOCS_SQL = """(
-SELECT d.doc_id,
-       d.reg_number,
-       d.title,
-       t.type_name,
-       d.status,
-       d.reg_date,
-       d.due_date,
-       u.full_name                         AS author,
-       dp.dept_name                        AS department,
-       COALESCE(c.cp_name, '— внутренний —') AS counterparty,
-       (d.due_date < current_date
-        AND d.status NOT IN ('Исполнен','В архиве')) AS is_overdue,
-       d.updated_at
-FROM documents d
-JOIN doc_types   t  ON t.type_id  = d.type_id
-JOIN users       u  ON u.user_id  = d.author_id
-JOIN departments dp ON dp.dept_id = d.dept_id
-LEFT JOIN counterparties c ON c.cp_id = d.cp_id
-) v"""
-
-STATS_SQL = """(
-SELECT dp.dept_name,
-       COUNT(d.doc_id)                                          AS docs_total,
-       COUNT(d.doc_id) FILTER (WHERE d.status = 'На согласовании') AS on_approval,
-       COUNT(d.doc_id) FILTER (WHERE d.status IN ('Исполнен','В архиве')) AS completed,
-       COUNT(d.doc_id) FILTER (WHERE d.due_date < current_date
-                               AND d.status NOT IN ('Исполнен','В архиве')) AS overdue,
-       ROUND(AVG(d.due_date - d.reg_date), 1)                   AS avg_term_days
-FROM departments dp
-LEFT JOIN documents d ON d.dept_id = dp.dept_id
-GROUP BY dp.dept_name
-) s"""
-
-TASKS_SQL = """(
-SELECT r.route_id, r.doc_id, d.reg_number, d.title, r.stage_no, r.action,
-       r.executor_id, u.full_name AS executor, r.assigned_at,
-       (current_date - r.assigned_at::date) AS waiting_days
-FROM doc_routes r
-JOIN documents d ON d.doc_id = r.doc_id
-JOIN users     u ON u.user_id = r.executor_id
-WHERE r.decision = 'Ожидает'
-) t"""
 
 STATUSES = ["Черновик", "На согласовании", "На доработке", "Согласован", "Исполнен", "В архиве"]
 
@@ -119,15 +73,15 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
-    stats = DBConnection.query(f"SELECT * FROM {STATS_SQL} ORDER BY docs_total DESC, dept_name")
+    stats = DBConnection.query("SELECT * FROM v_dept_doc_stats ORDER BY docs_total DESC, dept_name")
     totals = DBConnection.query_one(
         """SELECT COUNT(*) AS total,
                   COUNT(*) FILTER (WHERE status='На согласовании') AS on_approval,
                   COUNT(*) FILTER (WHERE is_overdue) AS overdue,
                   COUNT(*) FILTER (WHERE status IN ('Исполнен','В архиве')) AS done
-           FROM """ + DOCS_SQL)
+           FROM v_documents_full""")
     my_tasks = DBConnection.query(
-        f"SELECT * FROM {TASKS_SQL} WHERE executor_id = %s ORDER BY assigned_at",
+        "SELECT * FROM v_pending_tasks WHERE executor_id = %s ORDER BY assigned_at",
         (AppSession.current()["user_id"],))
     recent = DBConnection.query(
         """SELECT l.changed_at, d.reg_number, l.old_status, l.new_status, u.full_name
@@ -145,7 +99,7 @@ def documents():
     status = request.args.get("status", "")
     type_name = request.args.get("type", "")
     text = request.args.get("q", "").strip()
-    sql = f"SELECT * FROM {DOCS_SQL} WHERE TRUE"
+    sql = "SELECT * FROM v_documents_full WHERE TRUE"
     params = []
     if status:
         sql += " AND status = %s"
@@ -166,7 +120,7 @@ def documents():
 @app.route("/documents/<int:doc_id>")
 @login_required
 def document_card(doc_id):
-    doc = DBConnection.query_one(f"SELECT * FROM {DOCS_SQL} WHERE doc_id = %s", (doc_id,))
+    doc = DBConnection.query_one("SELECT * FROM v_documents_full WHERE doc_id = %s", (doc_id,))
     if not doc:
         flash("Документ не найден", "error")
         return redirect(url_for("documents"))
@@ -192,25 +146,13 @@ def document_new():
     form = request.form
     if request.method == "POST":
         try:
-            user = AppSession.current()
-            with DBConnection.cursor() as cur:
-                cur.execute("SELECT reg_prefix FROM doc_types WHERE type_id = %s", (int(form["type_id"]),))
-                prefix = cur.fetchone()["reg_prefix"]
-                cur.execute(
-                    """SELECT COALESCE(MAX(split_part(reg_number, '-', 3)::INT), 0) + 1 AS n
-                       FROM documents WHERE type_id = %s
-                       AND split_part(reg_number, '-', 2) = to_char(current_date, 'YYYY')""",
-                    (int(form["type_id"]),))
-                reg_number = f"{prefix}-{date.today():%Y}-{cur.fetchone()['n']:04d}"
-                cur.execute(
-                    """INSERT INTO documents (reg_number, title, type_id, author_id, dept_id, cp_id, due_date)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING doc_id""",
-                    (reg_number, form["title"].strip(), int(form["type_id"]), user["user_id"],
-                     user["dept_id"], int(form["cp_id"]) if form.get("cp_id") else None,
-                     form.get("due_date") or None))
-                doc_id = cur.fetchone()["doc_id"]
-            flash(f"Документ зарегистрирован под номером {reg_number}", "ok")
-            return redirect(url_for("document_card", doc_id=doc_id))
+            res = DBConnection.call("sp_register_document", (
+                form["title"].strip(), int(form["type_id"]), AppSession.current()["user_id"],
+                int(form["cp_id"]) if form.get("cp_id") else None,
+                form.get("due_date") or None, None, None),
+                app_role=AppSession.role(), casts={1: "smallint", 4: "date"})
+            flash(f"Документ зарегистрирован под номером {res['p_reg_number']}", "ok")
+            return redirect(url_for("document_card", doc_id=res["p_doc_id"]))
         except psycopg2.Error as exc:
             flash(db_error_text(exc), "error")
     return render_template("doc_form.html", doc=None, form=form,
@@ -264,6 +206,42 @@ def document_delete(doc_id):
     return redirect(url_for("documents"))
 
 
+# ---------------- маршрут согласования ----------------
+@app.route("/documents/<int:doc_id>/send", methods=["POST"])
+@permission_required("doc_route")
+def document_send(doc_id):
+    try:
+        DBConnection.call("sp_send_for_approval",
+                          (doc_id, int(request.form["executor_id"]), request.form["action"],
+                           AppSession.current()["user_id"]), app_role=AppSession.role())
+        flash("Этап маршрута добавлен", "ok")
+    except psycopg2.Error as exc:
+        flash(db_error_text(exc), "error")
+    return redirect(url_for("document_card", doc_id=doc_id))
+
+
+@app.route("/tasks")
+@login_required
+def tasks():
+    rows = DBConnection.query(
+        "SELECT * FROM v_pending_tasks WHERE executor_id = %s ORDER BY assigned_at",
+        (AppSession.current()["user_id"],))
+    return render_template("tasks.html", rows=rows)
+
+
+@app.route("/tasks/<int:route_id>/decide", methods=["POST"])
+@permission_required("decide")
+def decide(route_id):
+    try:
+        DBConnection.call("sp_decide_route",
+                          (route_id, request.form["decision"], request.form.get("comment") or None,
+                           AppSession.current()["user_id"]), app_role=AppSession.role())
+        flash("Решение сохранено", "ok")
+    except psycopg2.Error as exc:
+        flash(db_error_text(exc), "error")
+    return redirect(request.referrer or url_for("tasks"))
+
+
 # ---------------- отчёты ----------------
 @app.route("/reports")
 @login_required
@@ -302,6 +280,44 @@ def counterparties():
         """SELECT c.*, COUNT(d.doc_id) AS docs FROM counterparties c
            LEFT JOIN documents d ON d.cp_id = c.cp_id GROUP BY c.cp_id ORDER BY c.cp_name""")
     return render_template("counterparties.html", rows=rows)
+
+
+# ---------------- администрирование пользователей ----------------
+@app.route("/admin/users", methods=["GET", "POST"])
+@permission_required("users")
+def admin_users():
+    if request.method == "POST":
+        f = request.form
+        weak = PasswordHelper.check_strength(f["password"])
+        if weak:
+            flash("Пароль: " + ", ".join(weak), "error")
+        else:
+            salt = PasswordHelper.generate_salt()
+            pwd_hash = PasswordHelper.hash_password(f["password"], salt)
+            try:
+                res = DBConnection.call("sp_register_user", (
+                    f["login"].strip(), f["full_name"].strip(), f["email"].strip(),
+                    f.get("position") or None, int(f["dept_id"]), f["role_code"],
+                    pwd_hash, salt, None), app_role="ADMIN")
+                flash(f"Пользователь создан, ID = {res['p_user_id']}", "ok")
+            except psycopg2.Error as exc:
+                flash(db_error_text(exc), "error")
+    rows = DBConnection.query(
+        """SELECT u.user_id, u.login, u.full_name, u.position, d.dept_name, r.role_name,
+                  u.is_active, left(u.password_hash, 12) || '…' AS hash_head, u.created_at
+           FROM users u JOIN departments d ON d.dept_id = u.dept_id
+           JOIN roles r ON r.role_id = u.role_id ORDER BY u.user_id""", app_role="ADMIN")
+    return render_template("users.html", rows=rows,
+                           depts=load_lookup("departments", "dept_id", "dept_name"),
+                           roles=DBConnection.query("SELECT role_code, role_name FROM roles ORDER BY role_id"))
+
+
+@app.route("/admin/users/<int:user_id>/toggle", methods=["POST"])
+@permission_required("users")
+def admin_user_toggle(user_id):
+    DBConnection.execute("UPDATE users SET is_active = NOT is_active WHERE user_id = %s",
+                         (user_id,), app_role="ADMIN")
+    return redirect(url_for("admin_users"))
 
 
 @app.errorhandler(403)

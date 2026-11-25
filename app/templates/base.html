@@ -10,6 +10,7 @@
       <div class="sect">Работа</div>
       <a href="{{ url_for('dashboard') }}" class="{{ 'on' if request.endpoint=='dashboard' }}">Главная</a>
       <a href="{{ url_for('documents') }}" class="{{ 'on' if request.endpoint in ('documents','document_card','document_edit','document_new') }}">Реестр документов</a>
+      <a href="{{ url_for('tasks') }}" class="{{ 'on' if request.endpoint=='tasks' }}">Мои задачи</a>
       <a href="{{ url_for('reports') }}" class="{{ 'on' if request.endpoint=='reports' }}">Отчёты</a>
       <div class="sect">Справочники</div>
       <a href="{{ url_for('counterparties') }}" class="{{ 'on' if request.endpoint=='counterparties' }}">Контрагенты</a>

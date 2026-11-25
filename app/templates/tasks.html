@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% from '_macros.html' import dt %}
+{% block head %}Мои задачи{% endblock %}
+{% block body %}
+<div class="card"><h2>Ожидают моего решения <span class="muted">(VIEW v_pending_tasks)</span></h2>
+<table class="grid"><tr><th>Документ</th><th>Заголовок</th><th>Этап</th><th>Действие</th><th>Назначен</th><th>Ждёт, дн.</th></tr>
+{% for t in rows %}<tr><td><a href="{{ url_for('document_card', doc_id=t.doc_id) }}">{{ t.reg_number }}</a></td><td>{{ t.title }}</td><td>{{ t.stage_no }}</td><td>{{ t.action }}</td><td>{{ dt(t.assigned_at,'%d.%m.%Y %H:%M') }}</td><td>{{ t.waiting_days }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted">Нет задач</td></tr>{% endfor %}</table></div>
+{% endblock %}

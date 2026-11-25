@@ -32,6 +32,9 @@ class AppSession:
             "doc_create": {"ADMIN", "CLERK"},
             "doc_edit":   {"ADMIN", "CLERK"},
             "doc_delete": {"ADMIN", "CLERK"},
+            "doc_route":  {"ADMIN", "CLERK", "MANAGER"},
+            "decide":     {"ADMIN", "MANAGER"},
+            "users":      {"ADMIN"},
         }
         return AppSession.role() in rules.get(action, set())
 

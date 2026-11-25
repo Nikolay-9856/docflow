@@ -13,7 +13,7 @@
   {% if doc %}<div><label>Статус</label><select name="status">{% for s in statuses %}<option {{ 'selected' if s==doc.status }}>{{ s }}</option>{% endfor %}</select></div>
   <div><label>Регистрационный номер</label><input value="{{ doc.reg_number }}" disabled></div>
   <div><label>Дата регистрации</label><input value="{{ doc.reg_date.strftime('%d.%m.%Y') }}" disabled></div>
-  {% else %}<div><label>Регистрационный номер</label><input value="присваивается автоматически" disabled></div>{% endif %}
+  {% else %}<div><label>Регистрационный номер</label><input value="присваивается процедурой sp_register_document" disabled></div>{% endif %}
 </div>
 <div class="actions" style="justify-content:flex-start">
   <button class="btn">{{ 'Сохранить изменения' if doc else 'Зарегистрировать' }}</button>
