@@ -1,5 +1,5 @@
 -- ============================================================
--- Объекты БД citr_docflow: представления и хранимые процедуры
+-- Объекты БД citr_docflow: представления, процедуры, триггеры
 -- ============================================================
 
 -- ---------- ПРЕДСТАВЛЕНИЯ ----------
@@ -191,3 +191,56 @@ BEGIN
     RETURNING user_id INTO p_user_id;
 END;
 $$;
+
+-- ---------- ТРИГГЕРЫ ----------
+
+-- Аудит смены статуса документа
+CREATE OR REPLACE FUNCTION fn_documents_status_audit() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO doc_status_log (doc_id, old_status, new_status, changed_by)
+        VALUES (NEW.doc_id, NULL, NEW.status, NEW.author_id);
+    ELSIF OLD.status IS DISTINCT FROM NEW.status THEN
+        INSERT INTO doc_status_log (doc_id, old_status, new_status, changed_by)
+        VALUES (NEW.doc_id, OLD.status, NEW.status,
+                NULLIF(current_setting('app.user_id', TRUE), '')::INT);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_documents_status_audit
+AFTER INSERT OR UPDATE OF status ON documents
+FOR EACH ROW EXECUTE FUNCTION fn_documents_status_audit();
+
+-- Автоматическая отметка времени изменения
+CREATE OR REPLACE FUNCTION fn_set_updated_at() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.updated_at := now();
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_documents_updated_at
+BEFORE UPDATE ON documents
+FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+CREATE TRIGGER trg_users_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+-- Автонумерация версии при загрузке файла
+CREATE OR REPLACE FUNCTION fn_doc_files_version() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT COALESCE(MAX(version_no), 0) + 1 INTO NEW.version_no
+      FROM doc_files WHERE doc_id = NEW.doc_id;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_doc_files_version
+BEFORE INSERT ON doc_files
+FOR EACH ROW EXECUTE FUNCTION fn_doc_files_version();
