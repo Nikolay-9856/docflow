@@ -1,0 +1,23 @@
+{% extends 'base.html' %}{% from '_macros.html' import st, dt %}
+{% block head %}Главная{% endblock %}
+{% block body %}
+<div class="kpis">
+  <div class="kpi"><div class="v">{{ totals.total }}</div><div class="l">документов в реестре</div></div>
+  <div class="kpi"><div class="v">{{ totals.on_approval }}</div><div class="l">на согласовании</div></div>
+  <div class="kpi warn"><div class="v">{{ totals.overdue }}</div><div class="l">просрочено</div></div>
+  <div class="kpi"><div class="v">{{ totals.done }}</div><div class="l">исполнено / в архиве</div></div>
+</div>
+<div class="row">
+<div class="card" style="flex:1.4"><h2>Документы по подразделениям <span class="muted">(VIEW v_dept_doc_stats)</span></h2>
+<table class="grid"><tr><th>Подразделение</th><th>Всего</th><th>На согл.</th><th>Завершено</th><th>Просрочено</th><th>Ср. срок, дн.</th></tr>
+{% for s in stats %}<tr><td>{{ s.dept_name }}</td><td>{{ s.docs_total }}</td><td>{{ s.on_approval }}</td><td>{{ s.completed }}</td>
+<td class="{{ 'over' if s.overdue }}">{{ s.overdue }}</td><td>{{ s.avg_term_days if s.avg_term_days is not none else '—' }}</td></tr>{% endfor %}
+</table></div>
+<div class="card" style="flex:1"><h2>Мои задачи</h2>
+{% if my_tasks %}<table class="grid"><tr><th>Документ</th><th>Действие</th><th>Ждёт, дн.</th></tr>
+{% for t in my_tasks %}<tr><td><a href="{{ url_for('document_card', doc_id=t.doc_id) }}">{{ t.reg_number }}</a></td><td>{{ t.action }}</td><td>{{ t.waiting_days }}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">Задач на согласование нет.</p>{% endif %}
+<h2 style="margin-top:18px">Последние изменения статусов</h2>
+<table class="grid">{% for r in recent %}<tr><td class="muted">{{ dt(r.changed_at,'%d.%m %H:%M') }}</td><td>{{ r.reg_number }}</td><td>{{ st(r.new_status) }}</td></tr>{% endfor %}</table>
+</div></div>
+{% endblock %}

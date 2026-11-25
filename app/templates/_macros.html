@@ -1,0 +1,7 @@
+{% macro st(s) -%}
+{%- set cls = {'Черновик':'st-Черновик','На согласовании':'st-approval','На доработке':'st-rework',
+               'Согласован':'st-agreed','Исполнен':'st-done','В архиве':'st-arch',
+               'Ожидает':'st-approval','Согласовано':'st-done','Отклонено':'st-rework'} -%}
+<span class="st {{ cls.get(s,'') }}">{{ s }}</span>
+{%- endmacro %}
+{% macro dt(v, fmt='%d.%m.%Y') -%}{{ v.strftime(fmt) if v else '—' }}{%- endmacro %}

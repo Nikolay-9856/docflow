@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block head %}{{ 'Изменение документа ' ~ doc.reg_number if doc else 'Регистрация документа' }}{% endblock %}
+{% block body %}
+<form class="card" method="post" style="max-width:860px">
+<h2>{{ 'Карточка документа' if doc else 'Новый документ' }}</h2>
+<div class="form-grid">
+  <div class="full"><label>Заголовок *</label><input name="title" required maxlength="200" value="{{ form.title or (doc.title if doc else '') }}"></div>
+  <div><label>Вид документа *</label><select name="type_id" required><option value="">— выберите —</option>
+    {% for t in types %}<option value="{{ t.id }}" {{ 'selected' if (form.type_id|string)==(t.id|string) or (doc and doc.type_id==t.id) }}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div><label>Контрагент</label><select name="cp_id"><option value="">— внутренний документ —</option>
+    {% for c in cps %}<option value="{{ c.id }}" {{ 'selected' if (form.cp_id|string)==(c.id|string) or (doc and doc.cp_id==c.id) }}>{{ c.name }}</option>{% endfor %}</select></div>
+  <div><label>Срок исполнения</label><input type="date" name="due_date" value="{{ form.due_date or (doc.due_date if doc and doc.due_date else '') }}"></div>
+  {% if doc %}<div><label>Статус</label><select name="status">{% for s in statuses %}<option {{ 'selected' if s==doc.status }}>{{ s }}</option>{% endfor %}</select></div>
+  <div><label>Регистрационный номер</label><input value="{{ doc.reg_number }}" disabled></div>
+  <div><label>Дата регистрации</label><input value="{{ doc.reg_date.strftime('%d.%m.%Y') }}" disabled></div>
+  {% else %}<div><label>Регистрационный номер</label><input value="присваивается автоматически" disabled></div>{% endif %}
+</div>
+<div class="actions" style="justify-content:flex-start">
+  <button class="btn">{{ 'Сохранить изменения' if doc else 'Зарегистрировать' }}</button>
+  <a class="btn sec" href="{{ url_for('document_card', doc_id=doc.doc_id) if doc else url_for('documents') }}">Отмена</a></div>
+</form>
+{% endblock %}

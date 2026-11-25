@@ -2,14 +2,16 @@
 
 Учебный проект производственной практики, ООО «ЦИТР». PostgreSQL 16 + Python 3 / Flask 3.
 
-## Версия v1.0 — DDL и тестовые данные
+## Версия v2.0 — CRUD-приложение
 
 ### Что вошло в версию
-- `sql/01_schema.sql` — 9 таблиц, PK/FK, UNIQUE, CHECK, индексы, комментарии
-- `sql/02_data.sql` — тестовые данные (roles, departments, users, doc_types, counterparties, documents, doc_routes, doc_files, doc_status_log)
-- `docs/` — ER-диаграмма 
+- веб-приложение на Flask: вход в систему, главная, реестр документов, карточка, отчёты, справочник контрагентов
+- CRUD для таблицы `documents`: READ (реестр с фильтрами), CREATE (регистрация с автонумерацией), UPDATE, DELETE с подтверждением
+- запросы INNER / LEFT / RIGHT JOIN, GROUP BY + HAVING в отчётах
+- хэширование паролей SHA-256 с солью (`app/security.py`)
 
 ### Развёртывание
-1. `createdb citr_docflow`
-2. `psql -d citr_docflow -f sql/01_schema.sql`
-3. `psql -d citr_docflow -f sql/02_data.sql`
+1. Развернуть БД по шагам версии v1.0 (`sql/01_schema.sql`, `sql/02_data.sql`)
+2. `pip install flask psycopg2-binary`
+3. Скопировать `app/.env.example` в `app/.env` и указать пароль
+4. `cd app && python app.py` → http://127.0.0.1:5050

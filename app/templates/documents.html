@@ -1,0 +1,39 @@
+{% extends 'base.html' %}{% from '_macros.html' import st, dt %}
+{% block head %}Реестр документов{% endblock %}
+{% block body %}
+<div class="card"><form class="filters" method="get">
+  <div><label>Поиск по номеру / заголовку</label><input name="q" value="{{ f_q }}" style="min-width:240px"></div>
+  <div><label>Статус</label><select name="status"><option value="">все</option>
+    {% for s in statuses %}<option {{ 'selected' if s==f_status }}>{{ s }}</option>{% endfor %}</select></div>
+  <div><label>Вид документа</label><select name="type"><option value="">все</option>
+    {% for t in types %}<option {{ 'selected' if t.name==f_type }}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div><button class="btn sec">Применить</button></div>
+  {% if can('doc_create') %}<div style="margin-left:auto"><a class="btn" href="{{ url_for('document_new') }}">+ Зарегистрировать документ</a></div>{% endif %}
+</form></div>
+<div class="card"><h2>Найдено документов: {{ rows|length }} <span class="muted">(источник — VIEW v_documents_full)</span></h2>
+<table class="grid"><tr><th>Рег. №</th><th>Заголовок</th><th>Вид</th><th>Статус</th><th>Дата рег.</th><th>Срок</th><th>Автор</th><th>Контрагент</th>{% if can('doc_edit') %}<th></th>{% endif %}</tr>
+{% for d in rows %}<tr>
+<td><a href="{{ url_for('document_card', doc_id=d.doc_id) }}">{{ d.reg_number }}</a></td><td>{{ d.title }}</td><td>{{ d.type_name }}</td>
+<td>{{ st(d.status) }}</td><td>{{ dt(d.reg_date) }}</td><td class="{{ 'over' if d.is_overdue }}">{{ dt(d.due_date) }}</td>
+<td>{{ d.author }}</td><td>{{ d.counterparty }}</td>
+{% if can('doc_edit') %}<td style="white-space:nowrap"><a class="btn sec sm" href="{{ url_for('document_edit', doc_id=d.doc_id) }}">Изменить</a>
+<button class="btn red sm" type="button" onclick="askDelete({{ d.doc_id }}, '{{ d.reg_number }}', '{{ d.title|e }}')">Удалить</button></td>{% endif %}
+</tr>{% endfor %}</table></div>
+{% endblock %}
+{% block modal %}
+<div class="modal-bg" id="delModal"><form class="modal" method="post" id="delForm">
+  <h3>Удаление документа</h3>
+  <p>Удалить документ <b id="delNum"></b>?</p><p class="muted" id="delTitle"></p>
+  <p class="muted">Вместе с документом будут удалены маршрут согласования, файлы и записи журнала (ON DELETE CASCADE). Действие необратимо.</p>
+  <div class="actions"><button type="button" class="btn sec" onclick="closeDel()">Отмена</button><button class="btn red">Удалить</button></div>
+</form></div>
+<script>
+function askDelete(id, num, title){
+  document.getElementById('delForm').action = '/documents/' + id + '/delete';
+  document.getElementById('delNum').textContent = num;
+  document.getElementById('delTitle').textContent = title;
+  document.getElementById('delModal').classList.add('open');
+}
+function closeDel(){ document.getElementById('delModal').classList.remove('open'); }
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block head %}Отчёты{% endblock %}
+{% block body %}
+<div class="row">
+<div class="card"><h2>Нагрузка на исполнителей <span class="muted">(RIGHT JOIN users)</span></h2>
+<table class="grid"><tr><th>Сотрудник</th><th>Роль</th><th>Этапов</th><th>Ожидают</th></tr>
+{% for e in executors %}<tr><td>{{ e.full_name }}</td><td>{{ e.role_name }}</td><td>{{ e.stages }}</td><td>{{ e.pending }}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Документы по видам <span class="muted">(RIGHT JOIN doc_types)</span></h2>
+<table class="grid"><tr><th>Вид документа</th><th>Количество</th></tr>
+{% for t in by_type %}<tr><td>{{ t.type_name }}</td><td>{{ t.docs }}</td></tr>{% endfor %}</table></div>
+</div>
+<div class="card"><h2>Документы без прикреплённых файлов <span class="muted">(LEFT JOIN … IS NULL)</span></h2>
+<table class="grid"><tr><th>Рег. №</th><th>Заголовок</th><th>Статус</th></tr>
+{% for d in no_files %}<tr><td>{{ d.reg_number }}</td><td>{{ d.title }}</td><td>{{ d.status }}</td></tr>{% endfor %}</table></div>
+{% endblock %}

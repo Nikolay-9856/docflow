@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<title>{% block title %}ЦИТР.Документ{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="brand"><b>ЦИТР.Документ</b><span>ООО «ЦИТР» · электронный документооборот</span></div>
+    <nav>
+      <div class="sect">Работа</div>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'on' if request.endpoint=='dashboard' }}">Главная</a>
+      <a href="{{ url_for('documents') }}" class="{{ 'on' if request.endpoint in ('documents','document_card','document_edit','document_new') }}">Реестр документов</a>
+      <a href="{{ url_for('reports') }}" class="{{ 'on' if request.endpoint=='reports' }}">Отчёты</a>
+      <div class="sect">Справочники</div>
+      <a href="{{ url_for('counterparties') }}" class="{{ 'on' if request.endpoint=='counterparties' }}">Контрагенты</a>
+      {% if can('users') %}
+      <div class="sect">Администрирование</div>
+      <a href="{{ url_for('admin_users') }}" class="{{ 'on' if request.endpoint=='admin_users' }}">Пользователи</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" style="margin-top:18px">Выход</a>
+    </nav>
+  </aside>
+  <section class="main">
+    <div class="top"><h1>{% block head %}{% endblock %}</h1>
+      <div class="who"><b>{{ me.full_name }}</b><br><span class="badge">{{ me.role_name }}</span></div></div>
+    <div class="content">
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+      {% endwith %}
+      {% block body %}{% endblock %}
+    </div>
+  </section>
+</div>
+{% block modal %}{% endblock %}
+</body></html>

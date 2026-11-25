@@ -1,0 +1,36 @@
+{% extends 'base.html' %}{% from '_macros.html' import st, dt %}
+{% block head %}Документ {{ doc.reg_number }}{% endblock %}
+{% block body %}
+<div class="row">
+<div class="card" style="flex:1.2"><h2>{{ doc.title }}</h2>
+<div class="props">
+<div>Вид</div><div>{{ doc.type_name }}</div><div>Статус</div><div>{{ st(doc.status) }}</div>
+<div>Дата регистрации</div><div>{{ dt(doc.reg_date) }}</div><div>Срок исполнения</div><div class="{{ 'over' if doc.is_overdue }}">{{ dt(doc.due_date) }}</div>
+<div>Автор</div><div>{{ doc.author }}</div><div>Подразделение</div><div>{{ doc.department }}</div>
+<div>Контрагент</div><div>{{ doc.counterparty }}</div><div>Изменён</div><div>{{ dt(doc.updated_at,'%d.%m.%Y %H:%M:%S') }}</div>
+</div>
+{% if can('doc_edit') %}<div class="actions" style="justify-content:flex-start"><a class="btn sec" href="{{ url_for('document_edit', doc_id=doc.doc_id) }}">Изменить</a></div>{% endif %}
+</div>
+<div class="card" style="flex:1"><h2>Файлы (версии)</h2>
+{% if files %}<table class="grid"><tr><th>Вер.</th><th>Файл</th><th>КБ</th><th>Загрузил</th></tr>
+{% for f in files %}<tr><td>v{{ f.version_no }}</td><td>{{ f.file_name }}</td><td>{{ f.size_kb }}</td><td>{{ f.full_name }}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">Файлы не прикреплены.</p>{% endif %}
+<h2 style="margin-top:16px">История статусов <span class="muted">(триггер)</span></h2>
+<table class="grid">{% for h in history %}<tr><td class="muted">{{ dt(h.changed_at,'%d.%m.%Y %H:%M') }}</td><td>{{ h.old_status or '—' }} → {{ st(h.new_status) }}</td><td>{{ h.full_name or '' }}</td></tr>{% endfor %}</table>
+</div></div>
+<div class="card"><h2>Маршрут согласования</h2>
+<table class="grid"><tr><th>Этап</th><th>Действие</th><th>Исполнитель</th><th>Решение</th><th>Комментарий</th><th>Назначен</th><th>Решение принято</th><th></th></tr>
+{% for r in routes %}<tr><td>{{ r.stage_no }}</td><td>{{ r.action }}</td><td>{{ r.full_name }}</td><td>{{ st(r.decision) }}</td><td>{{ r.comment or '' }}</td>
+<td>{{ dt(r.assigned_at,'%d.%m.%Y %H:%M') }}</td><td>{{ dt(r.decided_at,'%d.%m.%Y %H:%M') }}</td>
+<td>{% if r.decision=='Ожидает' and me.user_id==r.executor_id and can('decide') %}
+<form method="post" action="{{ url_for('decide', route_id=r.route_id) }}" style="display:flex;gap:6px">
+<input name="comment" placeholder="комментарий" style="min-width:140px"><button class="btn sm" name="decision" value="Согласовано">Согласовать</button>
+<button class="btn red sm" name="decision" value="Отклонено">Отклонить</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">Маршрут не сформирован</td></tr>{% endfor %}</table>
+{% if can('doc_route') and doc.status not in ('Исполнен','В архиве') %}
+<form class="filters" method="post" action="{{ url_for('document_send', doc_id=doc.doc_id) }}" style="margin-top:14px">
+<div><label>Исполнитель этапа</label><select name="executor_id">{% for e in executors %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}</select></div>
+<div><label>Действие</label><select name="action"><option>Согласование</option><option>Подписание</option><option>Исполнение</option><option>Ознакомление</option></select></div>
+<div><button class="btn">Добавить этап (sp_send_for_approval)</button></div></form>{% endif %}
+</div>
+{% endblock %}

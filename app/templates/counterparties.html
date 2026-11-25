@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% from '_macros.html' import dt %}
+{% block head %}Контрагенты{% endblock %}
+{% block body %}
+{% if can('doc_create') %}<form class="card filters" method="post">
+<div><label>Наименование</label><input name="cp_name" required style="min-width:260px"></div>
+<div><label>ИНН</label><input name="inn" required maxlength="12"></div>
+<div><label>Тип</label><select name="cp_kind"><option>Заказчик</option><option>Поставщик</option><option>Госорган</option><option>Партнёр</option></select></div>
+<div><button class="btn">Добавить</button></div></form>{% endif %}
+<div class="card"><table class="grid"><tr><th>ID</th><th>Наименование</th><th>ИНН</th><th>Тип</th><th>Документов</th><th>Добавлен</th></tr>
+{% for c in rows %}<tr><td>{{ c.cp_id }}</td><td>{{ c.cp_name }}</td><td>{{ c.inn }}</td><td>{{ c.cp_kind }}</td><td>{{ c.docs }}</td><td>{{ dt(c.created_at) }}</td></tr>{% endfor %}</table></div>
+{% endblock %}
