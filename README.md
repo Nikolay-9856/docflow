@@ -2,17 +2,21 @@
 
 Учебный проект производственной практики, ООО «ЦИТР». PostgreSQL 16 + Python 3 / Flask 3.
 
-## Версия v4.0 — триггеры и роли СУБД
+## Версия v5.0 — финальная версия
 
 ### Что вошло в версию
-- триггеры: `trg_documents_status_audit` (журнал статусов), `trg_documents_updated_at`, `trg_users_updated_at`, `trg_doc_files_version`
-- `sql/05_roles.sql`: групповые роли `citr_reader`, `citr_clerk`, `citr_admin` и пользователи `db_reader`, `db_clerk`, `db_admin`
-- приложение подключается под учётной записью СУБД, соответствующей роли пользователя (`APP_ROLE_TO_DB` в `app/db.py`)
-- функция аудита — SECURITY DEFINER, прямой записи в журнал у рабочих ролей нет
+- все SQL-скрипты: `01_schema`, `02_data`, `03_objects`, `05_roles` и полный дамп `sql/dump_final.sql`
+- финальное веб-приложение (CRUD, VIEW, процедуры, триггеры, роли СУБД, хэширование паролей)
+- `docs/`: ER-диаграмма, схема навигации 
+
+**Тестовые учётные записи:** admin (администратор), orlova, gromova (делопроизводители), belov, sidorenko, frolov (руководители), nikitin (наблюдатель).
 
 ### Развёртывание
-1. Выполнить по порядку: `sql/01_schema.sql`, `sql/02_data.sql`, `sql/03_objects.sql`, `sql/05_roles.sql` (пароли пользователей СУБД задать свои)
-2. В `pg_hba.conf` для 127.0.0.1 указать `scram-sha-256`
-3. `pip install flask psycopg2-binary`
-4. `app/.env` по образцу `app/.env.example`
-5. `cd app && python app.py`
+**Вариант А — из дампа:**
+1. `createdb citr_docflow`
+2. `psql -d citr_docflow -f sql/dump_final.sql`
+3. `psql -d citr_docflow -f sql/05_roles.sql`
+
+**Вариант Б — по скриптам:** `01_schema.sql` → `02_data.sql` → `03_objects.sql` → `05_roles.sql`
+
+Далее: `pip install flask psycopg2-binary`, создать `app/.env` по образцу `app/.env.example`, запустить `cd app && python app.py` и открыть http://127.0.0.1:5050
